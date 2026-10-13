@@ -1,7 +1,9 @@
 import struct
 import unittest
 import zlib
-
+import os
+import tempfile
+from PIL import Image
 import numpy as np
 
 import stego_core as sc
@@ -38,6 +40,18 @@ class StegoCoreTests(unittest.TestCase):
                 results = sc.extract_all(stego, dip_components=features)
                 self.assertTrue(any(r["tech"] == "dip" and r["crc_ok"] and r["data"] == self.payload
                                     for r in results))
+
+    def test_16bit_grayscale_is_rescaled_not_clipped(self):
+        ramp = np.linspace(0, 65535, 64 * 64).reshape(64, 64).astype(np.uint16)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "ramp16.png")
+            Image.fromarray(ramp).save(path)
+            loaded = sc.load_image(path)
+        self.assertEqual(loaded.dtype, np.uint8)
+        self.assertEqual(loaded.min(), 0)
+        self.assertEqual(loaded.max(), 255)
+        self.assertGreater(len(np.unique(loaded)), 200)
+        self.assertLess((loaded == 255).mean(), 0.05)
 
     def test_capacity_boundary(self):
         cover = np.zeros((16, 16), dtype=np.uint8)
