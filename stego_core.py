@@ -43,13 +43,19 @@ TECH_LABEL["seq"] = "LSB sequential (Replacement or Matching - identical to read
 
 # ----------------------------------------------------------------------------- image I/O
 def load_image(src, force_gray=False):
-    """Return uint8 array: 2-D for grayscale, (H,W,3) for colour. Alpha is dropped."""
+    """Return uint8 array: 2-D for grayscale, (H,W,3) for colour. Alpha is dropped.
+    16-bit grayscale is rescaled to 0-255 (not clipped)."""
     im = Image.open(src)
-    if force_gray or im.mode in ("L", "1", "I;16", "I", "F"):
+    if im.mode.startswith("I;16"):
+        # 16-bit values run 0..65535; dividing by 257 maps 65535 -> 255
+        gray = np.array(im, dtype=np.float64) / 257.0
+        return np.clip(np.round(gray), 0, 255).astype(np.uint8)
+    if force_gray or im.mode in ("L", "1", "I", "F"):
         im = im.convert("L")
     else:
         im = im.convert("RGB")
     return np.array(im, dtype=np.uint8)
+
 
 
 def to_png_bytes(arr):
